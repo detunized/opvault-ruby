@@ -9,7 +9,8 @@ def open_vault path, password
     folders = load_folders path
     items = load_items path
 
-    key, mac = derive_key_mac profile, password
+    key, mac_key = derive_key_mac profile, password
+    overview_key = decrypt_overview_key profile, key, mac_key
 end
 
 def make_filename path, filename
@@ -69,8 +70,57 @@ def derive_key_mac profile, password
     [key_mac[0, 32], key_mac[32, 32]]
 end
 
+def decrypt_overview_key profile, key, mac_key
+    blob = decode64 profile["overviewKey"]
+    ap parse_opdata blob, key, mac_key
+end
+
+def parse_opdata blob, key, mac_key
+    if blob.size < 64
+        raise "Opdata01 container is corrupted: too short"
+    end
+
+    header = blob[0, 32]
+
+    if !header.start_with? "opdata01"
+        raise "Opdata01 container is corrupted: missing header"
+    end
+
+    length = header[8, 8].unpack("V")[0]
+    iv = header[16, 16]
+    padding = 16 - length % 16
+
+    if blob.size != 32 + padding + length + 32
+        raise "Opdata01 container is corrupted: invalid length"
+    end
+
+    ciphertext = blob[header.size, padding + length]
+    stored_tag = blob[header.size + ciphertext.size, 32]
+    computed_tag = hmac_sha256 mac_key, header + ciphertext
+
+    if computed_tag != stored_tag
+        raise "Opdata01 container is corrupted: tag doesn't match"
+    end
+
+    plaintext = decrypt_aes256 ciphertext, iv, key
+    plaintext[padding, length]
+end
+
 def pbkdf2_sha512 password, salt, iterations, size
     OpenSSL::PKCS5.pbkdf2_hmac password, salt, iterations, size, "sha512"
+end
+
+def hmac_sha256 key, message
+    OpenSSL::HMAC.digest "sha256", key, message
+end
+
+def decrypt_aes256 plaintext, iv, key
+    aes = OpenSSL::Cipher.new "aes-256-cbc"
+    aes.decrypt
+    aes.key = key
+    aes.iv = iv
+    aes.padding = 0
+    aes.update(plaintext) + aes.final
 end
 
 open_vault "#{ENV["HOME"]}/Downloads/opvault.opvault", "password"
