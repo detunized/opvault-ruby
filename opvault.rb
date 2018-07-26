@@ -5,8 +5,9 @@ require "json"
 def open_vault path
     profile = load_profile path
     folders = load_folders path
+    items = load_items path
 
-    ap load_band path, "d"
+    ap items.keys
 end
 
 def make_filename path, filename
@@ -23,16 +24,33 @@ def load_folders path
     load_js_as_json filename, "loadFolders(", ");"
 end
 
-def load_band path, index
-    filename = make_filename path, "band_#{index.upcase}.js"
+def load_items path
+    items = {}
+
+    "0123456789ABCDEF".each_char do |i|
+        filename = make_filename path, "band_#{i}.js"
+        if File.exist? filename
+            items.merge! load_band filename
+        end
+    end
+
+    items
+end
+
+def load_band filename
     load_js_as_json filename, "ld(", ");"
 end
 
 def load_js_as_json filename, prefix, suffix
     content = File.read filename
 
-    fail "Unsupported format: must start with #{prefix}" if !content.start_with? prefix
-    fail "Unsupported format: must end with #{suffix}" if !content.end_with? suffix
+    if !content.start_with? prefix
+        fail "Unsupported format: must start with #{prefix}"
+    end
+
+    if !content.end_with? suffix
+        fail "Unsupported format: must end with #{suffix}"
+    end
 
     JSON.load content[prefix.size...-suffix.size]
 end
