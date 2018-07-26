@@ -3,15 +3,15 @@
 require "json"
 
 def open_vault path
-    profile = parse_profile File.join(path, "default/profile.js")
-    folders = parse_folders File.join(path, "default/folders.js")
+    profile = load_profile File.join(path, "default/profile.js")
+    folders = load_folders File.join(path, "default/folders.js")
 end
 
-def parse_profile filename
+def load_profile filename
     load_js_as_json filename, "var profile=", ";"
 end
 
-def parse_folders filename
+def load_folders filename
     load_js_as_json filename, "loadFolders(", ");"
 end
 
