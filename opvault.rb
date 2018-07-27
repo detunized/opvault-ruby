@@ -103,15 +103,15 @@ def derive_kek profile, password
 end
 
 def decrypt_master_key profile, kek
-    decrypt_key profile, "masterKey", kek
+    decrypt_key profile["masterKey"], kek
 end
 
 def decrypt_overview_key profile, kek
-    decrypt_key profile, "overviewKey", kek
+    decrypt_key profile["overviewKey"], kek
 end
 
-def decrypt_key profile, name, kek
-    raw = decrypt_base64_opdata profile["overviewKey"], kek
+def decrypt_key key_base64, kek
+    raw = decrypt_base64_opdata key_base64, kek
     KeyMac.from_str sha512 raw
 end
 
