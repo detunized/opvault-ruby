@@ -86,11 +86,11 @@ end
 
 def decrypt_key profile, name, kek
     blob = decode64 profile["overviewKey"]
-    raw = parse_opdata blob, kek.key, kek.mac_key
+    raw = parse_opdata blob, kek
     KeyMac.from_str sha512 raw
 end
 
-def parse_opdata blob, key, mac_key
+def parse_opdata blob, key
     if blob.size < 64
         raise "Opdata01 container is corrupted: too short"
     end
@@ -111,13 +111,13 @@ def parse_opdata blob, key, mac_key
 
     ciphertext = blob[header.size, padding + length]
     stored_tag = blob[header.size + ciphertext.size, 32]
-    computed_tag = hmac_sha256 mac_key, header + ciphertext
+    computed_tag = hmac_sha256 key.mac_key, header + ciphertext
 
     if computed_tag != stored_tag
         raise "Opdata01 container is corrupted: tag doesn't match"
     end
 
-    plaintext = decrypt_aes256 ciphertext, iv, key
+    plaintext = decrypt_aes256 ciphertext, iv, key.key
     plaintext[padding, length]
 end
 
