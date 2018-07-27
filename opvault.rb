@@ -21,13 +21,19 @@ def open_vault path, password
     overview_key = decrypt_overview_key profile, kek
 
     decrypt_item_overviews! items, overview_key
-
-    ap items
+    decrypt_item_keys! items, master_key
 end
 
 def decrypt_item_overviews! items, key
     items.values.each do |i|
         i["o"] = JSON.load decrypt_base64_opdata i["o"], key
+    end
+end
+
+def decrypt_item_keys! items, key
+    items.values.each do |i|
+        raw = decode64 i["k"]
+        i["k"] = KeyMac.from_str decrypt_aes256 raw[16, 64], raw[0, 16], key.key
     end
 end
 
