@@ -20,8 +20,12 @@ def open_vault path, password
     master_key = decrypt_master_key profile, kek
     overview_key = decrypt_overview_key profile, kek
 
+    # TODO: Refactor this!
     decrypt_item_overviews! items, overview_key
     decrypt_item_keys! items, master_key
+    decrypt_item_data! items
+
+    ap items
 end
 
 def decrypt_item_overviews! items, key
@@ -48,6 +52,12 @@ def decrypt_item_keys! items, key
         end
 
         i["key"] = KeyMac.from_str decrypt_aes256 ciphertext, iv, key.key
+    end
+end
+
+def decrypt_item_data! items
+    items.values.each do |i|
+        i["data"] = JSON.load decrypt_base64_opdata i["d"], i["key"]
     end
 end
 
