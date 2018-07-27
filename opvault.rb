@@ -4,18 +4,21 @@ require "base64"
 require "json"
 require "openssl"
 
+class KeyMac < Struct.new :key, :mac_key
+    def self.from_str s
+        new s[0, 32], s[32, 32]
+    end
+end
+
 def open_vault path, password
     profile = load_profile path
     folders = load_folders path
     items = load_items path
 
-    key, mac_key = derive_key_mac profile, password
+    kek = derive_kek profile, password
 
-    master_key = decrypt_master_key profile, key, mac_key
-    overview_key = decrypt_overview_key profile, key, mac_key
-
-    ap master_key.size
-    ap overview_key.size
+    master_key = decrypt_master_key profile, kek
+    overview_key = decrypt_overview_key profile, kek
 end
 
 def make_filename path, filename
@@ -67,22 +70,24 @@ def decode64 base64
     Base64.decode64 base64
 end
 
-def derive_key_mac profile, password
+def derive_kek profile, password
     salt = decode64 profile["salt"]
     iterations = profile["iterations"]
-    key_mac = pbkdf2_sha512 password, salt, iterations, 64
-
-    [key_mac[0, 32], key_mac[32, 32]]
+    KeyMac.from_str pbkdf2_sha512 password, salt, iterations, 64
 end
 
-def decrypt_master_key profile, key, mac_key
-    blob = decode64 profile["masterKey"]
-    parse_opdata blob, key, mac_key
+def decrypt_master_key profile, kek
+    decrypt_key profile, "masterKey", kek
 end
 
-def decrypt_overview_key profile, key, mac_key
+def decrypt_overview_key profile, kek
+    decrypt_key profile, "overviewKey", kek
+end
+
+def decrypt_key profile, name, kek
     blob = decode64 profile["overviewKey"]
-    parse_opdata blob, key, mac_key
+    raw = parse_opdata blob, kek.key, kek.mac_key
+    KeyMac.from_str sha512 raw
 end
 
 def parse_opdata blob, key, mac_key
@@ -118,6 +123,10 @@ end
 
 def pbkdf2_sha512 password, salt, iterations, size
     OpenSSL::PKCS5.pbkdf2_hmac password, salt, iterations, size, "sha512"
+end
+
+def sha512 message
+    Digest::SHA512.digest message
 end
 
 def hmac_sha256 key, message
