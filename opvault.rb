@@ -19,6 +19,16 @@ def open_vault path, password
 
     master_key = decrypt_master_key profile, kek
     overview_key = decrypt_overview_key profile, kek
+
+    decrypt_item_overviews! items, overview_key
+
+    ap items
+end
+
+def decrypt_item_overviews! items, key
+    items.values.each do |i|
+        i["o"] = JSON.load decrypt_base64_opdata i["o"], key
+    end
 end
 
 def make_filename path, filename
@@ -66,10 +76,6 @@ def load_js_as_json filename, prefix, suffix
     JSON.load content[prefix.size...-suffix.size]
 end
 
-def decode64 base64
-    Base64.decode64 base64
-end
-
 def derive_kek profile, password
     salt = decode64 profile["salt"]
     iterations = profile["iterations"]
@@ -85,12 +91,16 @@ def decrypt_overview_key profile, kek
 end
 
 def decrypt_key profile, name, kek
-    blob = decode64 profile["overviewKey"]
-    raw = parse_opdata blob, kek
+    raw = decrypt_base64_opdata profile["overviewKey"], kek
     KeyMac.from_str sha512 raw
 end
 
-def parse_opdata blob, key
+def decrypt_base64_opdata blob_base64, key
+    blob = decode64 blob_base64
+    decrypt_opdata blob, key
+end
+
+def decrypt_opdata blob, key
     if blob.size < 64
         raise "Opdata01 container is corrupted: too short"
     end
@@ -121,6 +131,18 @@ def parse_opdata blob, key
     plaintext[padding, length]
 end
 
+#
+# Utils
+#
+
+def decode64 base64
+    Base64.decode64 base64
+end
+
+#
+# Crypto
+#
+
 def pbkdf2_sha512 password, salt, iterations, size
     OpenSSL::PKCS5.pbkdf2_hmac password, salt, iterations, size, "sha512"
 end
@@ -141,5 +163,9 @@ def decrypt_aes256 plaintext, iv, key
     aes.padding = 0
     aes.update(plaintext) + aes.final
 end
+
+#
+# main
+#
 
 open_vault "#{ENV["HOME"]}/Downloads/opvault.opvault", "password"
