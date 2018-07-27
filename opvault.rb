@@ -155,13 +155,13 @@ def hmac_sha256 key, message
     OpenSSL::HMAC.digest "sha256", key, message
 end
 
-def decrypt_aes256 plaintext, iv, key
+def decrypt_aes256 ciphertext, iv, key
     aes = OpenSSL::Cipher.new "aes-256-cbc"
     aes.decrypt
     aes.key = key
     aes.iv = iv
     aes.padding = 0
-    aes.update(plaintext) + aes.final
+    aes.update(ciphertext) + aes.final
 end
 
 #
