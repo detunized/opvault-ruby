@@ -20,16 +20,32 @@ def open_vault path, password
     master_key = decrypt_master_key profile, kek
     overview_key = decrypt_overview_key profile, kek
 
+    verify_item_tags items, overview_key
+
     # TODO: Refactor this!
     decrypt_item_overviews! items, overview_key
     decrypt_item_keys! items, master_key
     decrypt_item_data! items
 
     # TODO: folders
-    # TODO: check hmac
     # TODO: category
 
     ap items
+end
+
+def verify_item_tags items, key
+    items.values.each do |item|
+        keys = (item.keys - ["hmac"]).sort
+        values = keys.map { |k| item[k] }
+        message = keys.zip(values).join
+
+        stored = decode64 item["hmac"]
+        computed = hmac_sha256 key.mac_key, message
+
+        if computed != stored
+            raise "Item tag doesn't match"
+        end
+    end
 end
 
 def decrypt_item_overviews! items, key
