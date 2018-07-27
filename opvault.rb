@@ -25,6 +25,10 @@ def open_vault path, password
     decrypt_item_keys! items, master_key
     decrypt_item_data! items
 
+    # TODO: folders
+    # TODO: check hmac
+    # TODO: category
+
     ap items
 end
 
@@ -113,14 +117,14 @@ def derive_kek profile, password
 end
 
 def decrypt_master_key profile, kek
-    decrypt_key profile["masterKey"], kek
+    decrypt_base64_key profile["masterKey"], kek
 end
 
 def decrypt_overview_key profile, kek
-    decrypt_key profile["overviewKey"], kek
+    decrypt_base64_key profile["overviewKey"], kek
 end
 
-def decrypt_key key_base64, kek
+def decrypt_base64_key key_base64, kek
     raw = decrypt_base64_opdata key_base64, kek
     KeyMac.from_str sha512 raw
 end
