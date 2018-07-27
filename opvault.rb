@@ -10,7 +10,12 @@ def open_vault path, password
     items = load_items path
 
     key, mac_key = derive_key_mac profile, password
+
+    master_key = decrypt_master_key profile, key, mac_key
     overview_key = decrypt_overview_key profile, key, mac_key
+
+    ap master_key.size
+    ap overview_key.size
 end
 
 def make_filename path, filename
@@ -70,9 +75,14 @@ def derive_key_mac profile, password
     [key_mac[0, 32], key_mac[32, 32]]
 end
 
+def decrypt_master_key profile, key, mac_key
+    blob = decode64 profile["masterKey"]
+    parse_opdata blob, key, mac_key
+end
+
 def decrypt_overview_key profile, key, mac_key
     blob = decode64 profile["overviewKey"]
-    ap parse_opdata blob, key, mac_key
+    parse_opdata blob, key, mac_key
 end
 
 def parse_opdata blob, key, mac_key
