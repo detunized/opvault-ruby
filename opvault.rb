@@ -26,14 +26,28 @@ end
 
 def decrypt_item_overviews! items, key
     items.values.each do |i|
-        i["o"] = JSON.load decrypt_base64_opdata i["o"], key
+        i["overview"] = JSON.load decrypt_base64_opdata i["o"], key
     end
 end
 
 def decrypt_item_keys! items, key
     items.values.each do |i|
         raw = decode64 i["k"]
-        i["k"] = KeyMac.from_str decrypt_aes256 raw[16, 64], raw[0, 16], key.key
+
+        if raw.size != 112
+            raise "Item key is corrupted: invalid size"
+        end
+
+        iv = raw[0, 16]
+        ciphertext = raw[16, 64]
+        stored_tag = raw[80, 32]
+        computed_tag = hmac_sha256 key.mac_key, iv + ciphertext
+
+        if computed_tag != stored_tag
+            raise "Item key is corrupted: tag doesn't match"
+        end
+
+        i["key"] = KeyMac.from_str decrypt_aes256 ciphertext, iv, key.key
     end
 end
 
