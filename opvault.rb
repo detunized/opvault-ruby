@@ -26,22 +26,24 @@ def open_vault path, password
     master_key = decrypt_master_key profile, kek
     overview_key = decrypt_overview_key profile, kek
 
-    verify_item_tags items, overview_key
-
+    # TODO: handle folders
     decrypt_folder_overviews! folders, overview_key
 
-    # TODO: folders
-    # TODO: category
-    # TODO: filter out trashed items
+    # We're only interested in logins/accounts that are not deleted
+    account_items = select_active_account_items items.values
 
-    accounts = decrypt_items items, master_key, overview_key
+    # Check digital signatures on the accounts to see if the vault is not corrupted
+    verify_item_tags account_items, overview_key
+
+    # Decrypt, parse and convert
+    accounts = decrypt_items account_items, master_key, overview_key
 
     ap items
     ap accounts
 end
 
 def verify_item_tags items, key
-    items.values.each do |item|
+    items.each do |item|
         keys = (item.keys - ["hmac"]).sort
         values = keys.map { |k| item[k] }
         message = keys.zip(values).join
@@ -55,8 +57,14 @@ def verify_item_tags items, key
     end
 end
 
+def select_active_account_items items
+    items
+        .select { |i| i["category"] == "001" } # 001 is a login item
+        .reject { |i| i["trashed"] }
+end
+
 def decrypt_items items, master_key, overview_key
-    items.values.map { |i| decrypt_item i, master_key, overview_key }
+    items.map { |i| decrypt_item i, master_key, overview_key }
 end
 
 def decrypt_item item, master_key, overview_key
