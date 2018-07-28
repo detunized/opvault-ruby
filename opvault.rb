@@ -22,18 +22,16 @@ def open_vault path, password
 
     verify_item_tags items, overview_key
 
-    # TODO: Refactor this!
-    decrypt_item_overviews! items, overview_key
-    decrypt_item_keys! items, master_key
-    decrypt_item_data! items
-
     decrypt_folder_overviews! folders, overview_key
 
     # TODO: folders
     # TODO: category
     # TODO: filter out trashed items
 
-    ap folders
+    accounts = decrypt_items items, master_key, overview_key
+
+    ap items
+    ap accounts
 end
 
 def verify_item_tags items, key
@@ -51,37 +49,44 @@ def verify_item_tags items, key
     end
 end
 
-def decrypt_item_overviews! items, key
-    items.values.each do |i|
-        i["overview"] = JSON.load decrypt_base64_opdata i["o"], key
-    end
+def decrypt_items items, master_key, overview_key
+    items.values.map { |i| decrypt_item i, master_key, overview_key }
 end
 
-def decrypt_item_keys! items, key
-    items.values.each do |i|
-        raw = decode64 i["k"]
+def decrypt_item item, master_key, overview_key
+    item_key = decrypt_item_key item, master_key
 
-        if raw.size != 112
-            raise "Item key is corrupted: invalid size"
-        end
-
-        iv = raw[0, 16]
-        ciphertext = raw[16, 64]
-        stored_tag = raw[80, 32]
-        computed_tag = hmac_sha256 key.mac_key, iv + ciphertext
-
-        if computed_tag != stored_tag
-            raise "Item key is corrupted: tag doesn't match"
-        end
-
-        i["key"] = KeyMac.from_str decrypt_aes256 ciphertext, iv, key.key
-    end
+    {
+        overview: decrypt_item_overview(item, overview_key),
+        data: decrypt_item_data(item, item_key)
+    }
 end
 
-def decrypt_item_data! items
-    items.values.each do |i|
-        i["data"] = JSON.load decrypt_base64_opdata i["d"], i["key"]
+def decrypt_item_overview item, overview_key
+    JSON.load decrypt_base64_opdata item["o"], overview_key
+end
+
+def decrypt_item_key item, master_key
+    raw = decode64 item["k"]
+
+    if raw.size != 112
+        raise "Item key is corrupted: invalid size"
     end
+
+    iv = raw[0, 16]
+    ciphertext = raw[16, 64]
+    stored_tag = raw[80, 32]
+    computed_tag = hmac_sha256 master_key.mac_key, iv + ciphertext
+
+    if computed_tag != stored_tag
+        raise "Item key is corrupted: tag doesn't match"
+    end
+
+    KeyMac.from_str decrypt_aes256 ciphertext, iv, master_key.key
+end
+
+def decrypt_item_data item, item_key
+    JSON.load decrypt_base64_opdata item["d"], item_key
 end
 
 def decrypt_folder_overviews! folders, key
