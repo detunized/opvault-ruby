@@ -4,6 +4,12 @@ require "base64"
 require "json"
 require "openssl"
 
+class Account < Struct.new :id, :name, :username, :password, :url, :note
+    def initialize id:, name:, username:, password:, url:, note:
+        super id, name, username, password, url, note
+    end
+end
+
 class KeyMac < Struct.new :key, :mac_key
     def self.from_str s
         new s[0, 32], s[32, 32]
@@ -54,12 +60,17 @@ def decrypt_items items, master_key, overview_key
 end
 
 def decrypt_item item, master_key, overview_key
+    overview = decrypt_item_overview item, overview_key
     item_key = decrypt_item_key item, master_key
+    # TODO: rename to details
+    data = decrypt_item_data item, item_key
 
-    {
-        overview: decrypt_item_overview(item, overview_key),
-        data: decrypt_item_data(item, item_key)
-    }
+    Account.new id: item["uuid"],
+                name: overview["title"],
+                username: "TODO: username",
+                password: "TODO: password",
+                url: overview["url"],
+                note: data["notesPlain"]
 end
 
 def decrypt_item_overview item, overview_key
