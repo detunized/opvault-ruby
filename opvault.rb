@@ -27,10 +27,13 @@ def open_vault path, password
     decrypt_item_keys! items, master_key
     decrypt_item_data! items
 
+    decrypt_folder_overviews! folders, overview_key
+
     # TODO: folders
     # TODO: category
+    # TODO: filter out trashed items
 
-    ap items
+    ap folders
 end
 
 def verify_item_tags items, key
@@ -78,6 +81,12 @@ end
 def decrypt_item_data! items
     items.values.each do |i|
         i["data"] = JSON.load decrypt_base64_opdata i["d"], i["key"]
+    end
+end
+
+def decrypt_folder_overviews! folders, key
+    folders.values.each do |i|
+        i["overview"] = JSON.load decrypt_base64_opdata i["overview"], key
     end
 end
 
