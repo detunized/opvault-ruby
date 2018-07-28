@@ -70,15 +70,14 @@ end
 def decrypt_item item, master_key, overview_key
     overview = decrypt_item_overview item, overview_key
     item_key = decrypt_item_key item, master_key
-    # TODO: rename to details
-    data = decrypt_item_data item, item_key
+    details = decrypt_item_details item, item_key
 
     Account.new id: item["uuid"],
                 name: overview["title"],
                 username: "TODO: username",
                 password: "TODO: password",
                 url: overview["url"],
-                note: data["notesPlain"]
+                note: details["notesPlain"]
 end
 
 def decrypt_item_overview item, overview_key
@@ -104,7 +103,7 @@ def decrypt_item_key item, master_key
     KeyMac.from_str decrypt_aes256 ciphertext, iv, master_key.key
 end
 
-def decrypt_item_data item, item_key
+def decrypt_item_details item, item_key
     JSON.load decrypt_base64_opdata item["d"], item_key
 end
 
