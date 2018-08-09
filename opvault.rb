@@ -38,7 +38,6 @@ def open_vault path, password
     # Decrypt, parse and convert
     accounts = decrypt_items account_items, master_key, overview_key
 
-    ap items
     ap accounts
 end
 
@@ -74,8 +73,8 @@ def decrypt_item item, master_key, overview_key
 
     Account.new id: item["uuid"],
                 name: overview["title"],
-                username: "TODO: username",
-                password: "TODO: password",
+                username: find_detail_field(details, "username"),
+                password: find_detail_field(details, "password"),
                 url: overview["url"],
                 note: details["notesPlain"]
 end
@@ -105,6 +104,13 @@ end
 
 def decrypt_item_details item, item_key
     JSON.load decrypt_base64_opdata item["d"], item_key
+end
+
+def find_detail_field details, name
+    details.fetch("fields", [])
+        .find_all { |i| i["designation"] == name }
+        .map { |i| i["value"] }
+        .first
 end
 
 def decrypt_folder_overviews! folders, key
