@@ -22,13 +22,19 @@ class KeyMac < Struct.new :key, :mac_key
     end
 end
 
+# Used to mark items with no folder (not to use nil)
+NO_FOLDER = Folder.new id: "-", name: "-"
+
 def open_vault path, password
+    # Load all the files
     profile = load_profile path
     encrypted_folders = load_folders path
-    items = load_items path
+    encrypted_items = load_items path
 
+    # Derive key encryption key
     kek = derive_kek profile, password
 
+    # Decrypt main keys
     master_key = decrypt_master_key profile, kek
     overview_key = decrypt_overview_key profile, kek
 
@@ -36,7 +42,7 @@ def open_vault path, password
     folders = decrypt_folders encrypted_folders.values, overview_key
 
     # We're only interested in logins/accounts that are not deleted
-    account_items = select_active_account_items items.values
+    account_items = select_active_account_items encrypted_items.values
 
     # Check digital signatures on the accounts to see if the vault is not corrupted
     verify_item_tags account_items, overview_key
@@ -44,7 +50,8 @@ def open_vault path, password
     # Decrypt, parse, convert and assign folders
     accounts = decrypt_items account_items, master_key, overview_key, folders
 
-    ap accounts
+    # Done
+    accounts
 end
 
 def verify_item_tags items, key
@@ -83,7 +90,7 @@ def decrypt_item item, master_key, overview_key, folders
                 password: find_detail_field(details, "password"),
                 url: overview["url"],
                 note: details["notesPlain"],
-                folder: folders[item["folder"]]
+                folder: folders[item["folder"]] || NO_FOLDER
 end
 
 def decrypt_item_overview item, overview_key
@@ -276,4 +283,7 @@ end
 # main
 #
 
-open_vault "#{ENV["HOME"]}/Downloads/opvault.opvault", "password"
+accounts = open_vault "#{ENV["HOME"]}/Downloads/opvault.opvault", "password"
+accounts.each_with_index do |i, index|
+    puts "#{index + 1}: #{i.id}, #{i.name} #{i.username}, #{i.password}, #{i.url}, #{i.note}, #{i.folder.name}"
+end
