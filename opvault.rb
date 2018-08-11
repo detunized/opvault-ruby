@@ -10,6 +10,12 @@ class Account < Struct.new :id, :name, :username, :password, :url, :note
     end
 end
 
+class Folder < Struct.new :id, :name
+    def initialize id:, name:
+        super id, name
+    end
+end
+
 class KeyMac < Struct.new :key, :mac_key
     def self.from_str s
         new s[0, 32], s[32, 32]
@@ -18,7 +24,7 @@ end
 
 def open_vault path, password
     profile = load_profile path
-    folders = load_folders path
+    encrypted_folders = load_folders path
     items = load_items path
 
     kek = derive_kek profile, password
@@ -27,7 +33,7 @@ def open_vault path, password
     overview_key = decrypt_overview_key profile, kek
 
     # TODO: handle folders
-    decrypt_folder_overviews! folders, overview_key
+    folders = decrypt_folders encrypted_folders.values, overview_key
 
     # We're only interested in logins/accounts that are not deleted
     account_items = select_active_account_items items.values
@@ -113,10 +119,23 @@ def find_detail_field details, name
         .first
 end
 
-def decrypt_folder_overviews! folders, key
-    folders.values.each do |i|
-        i["overview"] = JSON.load decrypt_base64_opdata i["overview"], key
-    end
+def decrypt_folders folders, overview_key
+    folders
+        .reject { |i| i["trashed"] }
+        .map { |i| decrypt_folder i, overview_key }
+        .map { |i| [i.id, i] }
+        .to_h
+end
+
+def decrypt_folder folder, overview_key
+    overview = decrypt_folder_overview folder, overview_key
+
+    Folder.new id: folder["uuid"],
+               name: overview["title"]
+end
+
+def decrypt_folder_overview folder, overview_key
+    JSON.load decrypt_base64_opdata folder["overview"], overview_key
 end
 
 def make_filename path, filename
