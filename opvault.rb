@@ -289,7 +289,7 @@ end
 # main
 #
 
-accounts = open_vault "#{ENV["HOME"]}/Downloads/opvault.opvault", "password"
+accounts = open_vault "test.opvault", "password"
 accounts.each_with_index do |i, index|
     puts "#{index + 1}: #{i.id}, #{i.name} #{i.username}, #{i.password}, #{i.url}, #{i.note}, #{i.folder.name}"
 end
