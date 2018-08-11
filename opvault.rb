@@ -4,9 +4,9 @@ require "base64"
 require "json"
 require "openssl"
 
-class Account < Struct.new :id, :name, :username, :password, :url, :note
-    def initialize id:, name:, username:, password:, url:, note:
-        super id, name, username, password, url, note
+class Account < Struct.new :id, :name, :username, :password, :url, :note, :folder
+    def initialize id:, name:, username:, password:, url:, note:, folder:
+        super id, name, username, password, url, note, folder
     end
 end
 
@@ -32,7 +32,7 @@ def open_vault path, password
     master_key = decrypt_master_key profile, kek
     overview_key = decrypt_overview_key profile, kek
 
-    # TODO: handle folders
+    # Decrypt, parse and convert folders
     folders = decrypt_folders encrypted_folders.values, overview_key
 
     # We're only interested in logins/accounts that are not deleted
@@ -41,8 +41,8 @@ def open_vault path, password
     # Check digital signatures on the accounts to see if the vault is not corrupted
     verify_item_tags account_items, overview_key
 
-    # Decrypt, parse and convert
-    accounts = decrypt_items account_items, master_key, overview_key
+    # Decrypt, parse, convert and assign folders
+    accounts = decrypt_items account_items, master_key, overview_key, folders
 
     ap accounts
 end
@@ -68,11 +68,11 @@ def select_active_account_items items
         .reject { |i| i["trashed"] }
 end
 
-def decrypt_items items, master_key, overview_key
-    items.map { |i| decrypt_item i, master_key, overview_key }
+def decrypt_items items, master_key, overview_key, folders
+    items.map { |i| decrypt_item i, master_key, overview_key, folders }
 end
 
-def decrypt_item item, master_key, overview_key
+def decrypt_item item, master_key, overview_key, folders
     overview = decrypt_item_overview item, overview_key
     item_key = decrypt_item_key item, master_key
     details = decrypt_item_details item, item_key
@@ -82,7 +82,8 @@ def decrypt_item item, master_key, overview_key
                 username: find_detail_field(details, "username"),
                 password: find_detail_field(details, "password"),
                 url: overview["url"],
-                note: details["notesPlain"]
+                note: details["notesPlain"],
+                folder: folders[item["folder"]]
 end
 
 def decrypt_item_overview item, overview_key
